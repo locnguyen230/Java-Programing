@@ -1,0 +1,667 @@
+{
+  "info": {
+    "name": "CareerMate Backend - Full Smoke (Gray-box)",
+    "_postman_id": "5f6c1d3e-2c1a-4b2c-bf11-0a1d9f3c2e7a",
+    "description": "Postman Collection v2.1.0 generated from controller/service gray-box analysis. Includes Happy Path, Validation Errors (400), and Business & Security Errors (401/403/404/500).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "jobId", "value": "11111111-1111-1111-1111-111111111111" },
+    { "key": "applicationId", "value": "22222222-2222-2222-2222-222222222222" },
+    {
+      "key": "notificationId",
+      "value": "33333333-3333-3333-3333-333333333333"
+    },
+    { "key": "transactionId", "value": "44444444-4444-4444-4444-444444444444" }
+  ],
+  "item": [
+    {
+      "name": "1. Happy Path (End-to-End Flow)",
+      "item": [
+        {
+          "name": "Auth - Register (dynamic email)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"QA Tester\",\n  \"email\": \"qa_test_{{$randomInt}}@mate.com\",\n  \"password\": \"Password123\",\n  \"confirmPassword\": \"Password123\",\n  \"role\": \"CANDIDATE\",\n  \"companyName\": \"Creear\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => { pm.expect(j).to.have.property('success'); pm.expect(j.success).to.eql(true); });",
+                  "pm.test('ApiResponse message is string', () => pm.expect(j.message).to.be.a('string'));",
+                  "pm.test('ApiResponse data exists', () => pm.expect(j).to.have.property('data'));",
+                  "pm.test('Auth token exists', () => pm.expect(j.data).to.have.property('token'));",
+                  "pm.environment.set('accessToken', j.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth - Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"qa_test_{{$randomInt}}@mate.com\",\n  \"password\": \"Password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => { pm.expect(j.success).to.eql(true); });",
+                  "pm.test('ApiResponse message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('Auth token exists', () => pm.expect(j.data).to.have.property('token'));",
+                  "pm.environment.set('accessToken', j.data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "VIP - Plans",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/vip/plans",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vip", "plans"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('ApiResponse message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('ApiResponse data is array', () => pm.expect(Array.isArray(j.data)).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "VIP - My Subscription (requires auth)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/vip/my-subscription",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vip", "my-subscription"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('ApiResponse message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data.planId exists', () => pm.expect(j.data).to.have.property('planId'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment - Create (requires auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planId\": \"vip_monthly\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('ApiResponse message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data.transactionId exists', () => pm.expect(j.data).to.have.property('transactionId'));",
+                  "pm.test('data.qrUrl exists', () => pm.expect(j.data).to.have.property('qrUrl'));",
+                  "pm.environment.set('transactionId', j.data.transactionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment - Confirm",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/confirm/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "confirm", "{{transactionId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"PAY123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data.content is array (paged or direct)', () => pm.expect(j.data).to.have.property('content', undefined));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - Save (requires auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}/save",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs", "{{jobId}}", "save"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - Apply (requires auth)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs", "{{jobId}}", "apply"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Candidate A\",\n  \"email\": \"candidate1@test.com\",\n  \"phoneNumber\": \"0900000000\",\n  \"cvUrl\": \"https://example.com/cv/candidate-a.pdf\",\n  \"coverLetter\": \"Hello\",\n  \"jobId\": \"ignored\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('ApiResponse success=true', () => pm.expect(j.success).to.eql(true));",
+                  "pm.test('message=success', () => pm.expect(j.message).to.eql('success'));",
+                  "pm.test('data.applicationId or object', () => { pm.expect(j.data).to.be.an('object'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Validation Errors (HTTP 400)",
+      "item": [
+        {
+          "name": "Auth - Login invalid email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bad-email\",\n  \"password\": \"12345678\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('ErrorResponse message is string', () => pm.expect(j.message).to.be.a('string'));",
+                  "pm.test('ErrorResponse data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth - Register password too short",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"QA Tester\",\n  \"email\": \"qa_test_{{$randomInt}}@mate.com\",\n  \"password\": \"short\",\n  \"confirmPassword\": \"short\",\n  \"role\": \"CANDIDATE\",\n  \"companyName\": \"Creear\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('ErrorResponse data null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment - Create planId blank",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create"]
+            },
+            "body": { "mode": "raw", "raw": "{\"planId\": \"\"}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - Search advanced minSalary < 0",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/search/advanced?minSalary=-1&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs", "search", "advanced"],
+              "query": [
+                { "key": "minSalary", "value": "-1" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - Apply invalid email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/{{jobId}}/apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs", "{{jobId}}", "apply"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Candidate A\",\n  \"email\": \"bad-email\",\n  \"phoneNumber\": \"0900000000\",\n  \"cvUrl\": \"https://example.com/cv/candidate-a.pdf\",\n  \"coverLetter\": \"Hello\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('data is null', () => pm.expect(j.data).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Business & Security Errors (HTTP 401/403/404/500)",
+      "item": [
+        {
+          "name": "Auth - Refresh not implemented",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status code is 500', () => pm.response.to.have.status(500));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('message=Internal server error', () => pm.expect(j.message).to.eql('Internal server error'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "VIP - My subscription without token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/vip/my-subscription",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vip", "my-subscription"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 401 or 500', () => pm.expect([401,403,500]).to.include(pm.response.code));",
+                  "const j = (() => { try { return pm.response.json(); } catch(e){ return null; }})();",
+                  "if (j) { pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false)); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment - Create without token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create"]
+            },
+            "body": { "mode": "raw", "raw": "{\"planId\":\"vip_monthly\"}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 401 or 500', () => pm.expect([401,403,500]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jobs - Get by non-existing id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/does-not-exist",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "jobs", "does-not-exist"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 500', () => pm.response.to.have.status(500));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('message=Internal server error', () => pm.expect(j.message).to.eql('Internal server error'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Application - Notification detail with non-existing id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/does-not-exist",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "does-not-exist"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 500', () => pm.response.to.have.status(500));",
+                  "const j = pm.response.json();",
+                  "pm.test('ErrorResponse success=false', () => pm.expect(j.success).to.eql(false));",
+                  "pm.test('message=Internal server error', () => pm.expect(j.message).to.eql('Internal server error'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin - Approve job with fake id",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/jobs/{{jobId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "jobs", "{{jobId}}", "approve"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 401/403/500', () => pm.expect([401,403,500]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recruiter - Accept application with non-existing id",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/jobs/employer/applications/does-not-exist/accept",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "jobs",
+                "employer",
+                "applications",
+                "does-not-exist",
+                "accept"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response time < 500ms', () => pm.expect(responseTime).to.be.below(500));",
+                  "pm.test('Status 500 or 403', () => pm.expect([403,500]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

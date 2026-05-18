@@ -1,0 +1,6 @@
+{
+  "name": "CareerMate",
+  "description": "Enterprise career platform with Spring Boot backend, AI-powered CV analysis, job matching, and PRO membership for UTH students and recruiters.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["GEMINI_AI"]
+}

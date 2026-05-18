@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: creear-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-creear}
+      POSTGRES_USER: ${POSTGRES_USER:-creear}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-creear}
+    ports:
+      - "5432:5432"
+    volumes:
+      - creear_pg_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: creear-backend
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      # DB
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-creear}
+      DB_USERNAME: ${POSTGRES_USER:-creear}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-creear}
+      DB_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-change-me-please-32byte-minimum}
+      JWT_ACCESS_TOKEN_TTL_MS: ${JWT_ACCESS_TOKEN_TTL_MS:-3600000}
+      JWT_REFRESH_TOKEN_TTL_MS: ${JWT_REFRESH_TOKEN_TTL_MS:-2592000000}
+
+      # CORS
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+
+volumes:
+  creear_pg_data:

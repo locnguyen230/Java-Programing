@@ -1,0 +1,57 @@
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Frontend / Node.js ---
+node_modules/
+build/
+dist/
+coverage/
+*.log
+.env*
+!.env.example
+
+# --- Java / Maven / Gradle ---
+**/target/
+**/build/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+# Chặn các file log của Spring
+*.log
+# Chặn thư mục cài đặt wrapper
+.gradle/
+bin/
+
+# --- C# / .NET (Nếu sau này bạn gộp project C# vào) ---
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- IDEs & Editors ---
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+# Eclipse
+.settings/
+.project
+.classpath
+.factorypath
+
+# --- Misc ---
+temp/
+tmp/
