@@ -50,49 +50,7 @@ Chọn dependencies:
 
 ---
 
-## 4) Chạy ứng dụng (Run)
-
-### 4.1. Cấu hình environment variables
-
-Tạo file `.env` ở **gốc** `Frontend/` (cùng cấp với `backend/`) hoặc tại thư mục chạy.
-
-Ví dụ: `.env`
-
-```env
-DB_URL=jdbc:postgresql://localhost:5432/careermate
-DB_USERNAME=careermate
-DB_PASSWORD=careermate
-DB_DIALECT=org.hibernate.dialect.PostgreSQLDialect
-
-JWT_SECRET=change-me-please
-JWT_ACCESS_TOKEN_TTL_MS=3600000
-JWT_REFRESH_TOKEN_TTL_MS=2592000000
-
-SPRING_PROFILES_ACTIVE=dev
-
-# Nếu dùng OAuth2/Google token verification
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-# Payment providers (nếu backend thật)
-PAYMENT_API_KEY=
-PAYMENT_WEBHOOK_SECRET=
-
-# Base URL backend (nếu cần CORS)
-FRONTEND_ORIGIN=http://localhost:5173
-```
-
-### 4.2. application.yml
-
-Backend sẽ đọc biến từ môi trường thông qua `${VAR_NAME}`.
-
-Bạn cần tạo file:
-
-- `backend/src/main/resources/application.yml`
-
----
-
-## 5) Build & Run với Maven
+## 4) Build & Run với Maven
 
 Từ thư mục `backend/`:
 
@@ -110,7 +68,7 @@ mvn spring-boot:run
 
 ---
 
-## 6) Swagger / OpenAPI
+## 5) Swagger / OpenAPI
 
 Thường truy cập:
 
@@ -119,7 +77,7 @@ Thường truy cập:
 
 ---
 
-## 7) Các endpoint chính (mapping theo Frontend)
+## 6) Các endpoint chính (mapping theo Frontend)
 
 > Backend cần implement theo các service endpoints đã reverse từ Frontend.
 
@@ -180,7 +138,7 @@ Thường truy cập:
 
 ---
 
-## 8) Checklist triển khai theo tiêu chuẩn cao cấp (gợi ý)
+## 7) Checklist triển khai theo tiêu chuẩn cao cấp (gợi ý)
 
 Khi bạn bắt đầu code trong backend, mình sẽ scaffold theo cấu trúc package:
 
@@ -204,8 +162,3 @@ Sau đó implement:
 - Liquibase/Flyway migrations
 
 ---
-
-## 9) Chú ý quan trọng
-
-Hiện tại trong repo Frontend, chưa có folder backend code Java Spring Boot.
-File này chỉ là hướng dẫn chạy + tạo cấu trúc.

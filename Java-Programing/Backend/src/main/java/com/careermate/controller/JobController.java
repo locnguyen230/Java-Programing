@@ -99,7 +99,7 @@ public class JobController {
                 payload.phoneNumber(),
                 payload.cvUrl(),
                 payload.coverLetter(),
-                jobId);
+                payload.jobId());
 
         return ResponseEntity.ok(ApiResponse.ok("success", jobService.applyJob(payload)));
     }

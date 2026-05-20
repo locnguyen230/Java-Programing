@@ -89,7 +89,9 @@ public class AdminServiceImpl implements AdminService {
                 j.getLocation(),
                 j.getExperience(),
                 j.getEmploymentType(),
-                j.getSkills(),
+                j.getSkills() != null ? j.getSkills().stream().map(com.careermate.entity.SkillEntity::getName)
+                        .collect(java.util.stream.Collectors.joining(",")) : null,
+
                 j.getCreatedAt() != null ? j.getCreatedAt().toString() : null,
                 j.getDeadline(),
                 j.getViewCount(),

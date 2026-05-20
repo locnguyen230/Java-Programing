@@ -14,10 +14,14 @@ import com.careermate.service.RecruiterJobService;
 import com.careermate.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import main.java.com.careermate.entity.SkillEntity;
+import com.careermate.entity.SkillEntity;
+import com.careermate.repository.SkillRepository;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityNotFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,6 +43,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
     private final UserRepository userRepository;
+    private final SkillRepository skillRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,7 +62,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
         String recruiterId = CurrentUser.id();
 
         // Lấy danh sách ứng viên chỉ khi job đó thuộc về recruiter đang đăng nhập
-        List<ApplicationEntity> applicants = applicationRepository.findByJobIdAndRecruiterId(jobId, recruiterId);
+        List<ApplicationEntity> applicants = jobRepository.findByJobIdAndRecruiterId(jobId, recruiterId);
 
         // Nếu danh sách rỗng, có thể là jobId sai hoặc không phải job của người đó
         if (applicants.isEmpty()) {
@@ -67,7 +72,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
         }
 
         return applicants.stream()
-                .map(ap -> this.toDto(ap, ap.getJob()))
+                .map(ap -> this.toDto(ap))
                 .toList();
     }
 
@@ -90,7 +95,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
                 throw new IllegalStateException("The job has no available positions.");
             }
 
-            NoficationEntity notification = createNofication(app, "Congratulations on your application!");
+            NotificationEntity notification = createNofication(app, "Congratulations on your application!");
 
             // 3. Thực hiện thay đổi
             app.setStatus(ApplicationEntity.ApplicationStatus.ACCEPTED);
@@ -121,7 +126,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
                 throw new IllegalStateException("This application is not pending.");
             }
 
-            NoficationEntity notification = createNofication(app, "Unfortunately, you haven't been selected!");
+            NotificationEntity notification = createNofication(app, "Unfortunately, you haven't been selected!");
 
             // 3. Thực hiện thay đổi
             app.setStatus(ApplicationEntity.ApplicationStatus.REJECTED);
@@ -135,9 +140,9 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
         }
     }
 
-    public NoficationEntity createNofication(ApplicationEntity app, String msg) {
-        NoficationEntity notification = new NotificationEntity();
-        notification.setUser(app.getCandidate());
+    public NotificationEntity createNofication(ApplicationEntity app, String msg) {
+        NotificationEntity notification = new NotificationEntity();
+        notification.setCandidate(app.getCandidate());
         notification.setMessage(msg);
         return notification;
     }
@@ -160,7 +165,7 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
         job.setDescription(asString(map, "description"));
         job.setRequirements(asString(map, "requirements"));
         job.setBenefits(asString(map, "benefits"));
-        job.setTags(asString(map, "tags"));
+        // JobEntity hiện không có field tags trong entity
         job.setCategory(asString(map, "category"));
         job.setWorkMode(asString(map, "workMode"));
         job.setLocation(asString(map, "location"));
@@ -201,11 +206,18 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
             job.setStatus(JobEntity.JobStatus.DRAFT);
         }
 
-        if (map.get("minSalary") instanceof Number min)
-            job.setMinSalary(new java.math.BigDecimal(min.toString()));
-        if (map.get("maxSalary") instanceof Number max)
-            job.setMaxSalary(new java.math.BigDecimal(max.toString()));
-        if (min != null && max != null && min.compareTo(max) > 0) {
+        Number minSalaryObj = map.get("minSalary") instanceof Number nMin ? nMin : null;
+        Number maxSalaryObj = map.get("maxSalary") instanceof Number nMax ? nMax : null;
+
+        if (minSalaryObj != null) {
+            job.setMinSalary(new java.math.BigDecimal(minSalaryObj.toString()));
+        }
+        if (maxSalaryObj != null) {
+            job.setMaxSalary(new java.math.BigDecimal(maxSalaryObj.toString()));
+        }
+        if (minSalaryObj != null && maxSalaryObj != null
+                && new java.math.BigDecimal(minSalaryObj.toString())
+                        .compareTo(new java.math.BigDecimal(maxSalaryObj.toString())) > 0) {
             throw new IllegalArgumentException("Min salary cannot be greater than max salary");
         }
         job.setSalaryUnit(asString(map, "salaryUnit"));

@@ -1,8 +1,10 @@
-package main.java.com.careermate.entity;
+package com.careermate.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "skills")
@@ -15,4 +17,7 @@ public class SkillEntity {
 
     @Column(unique = true, nullable = false)
     private String name;
+
+    @ManyToMany(mappedBy = "skills")
+    private Set<JobEntity> jobs = new HashSet<>();
 }

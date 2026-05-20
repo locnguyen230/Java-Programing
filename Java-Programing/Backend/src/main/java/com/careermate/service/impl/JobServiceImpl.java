@@ -18,7 +18,7 @@ import com.careermate.service.JobService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import main.java.com.careermate.entity.SkillEntity;
+import com.careermate.entity.SkillEntity;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -152,7 +152,6 @@ public class JobServiceImpl implements JobService {
         SavedJobEntity saved = savedJobRepository.findByUser_IdAndJob_Id(userId, jobId).orElse(null);
         if (saved != null) {
             throw new IllegalStateException("Job already saved");
-            return;
         }
 
         UserEntity user = userRepository.findById(userId)
