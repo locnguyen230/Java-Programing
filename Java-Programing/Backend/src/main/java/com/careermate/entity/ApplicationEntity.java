@@ -14,6 +14,9 @@ import lombok.Setter;
 @Table(name = "applications")
 public class ApplicationEntity extends AuditableEntity {
 
+    @Version
+    private Long version;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", columnDefinition = "CHAR(36)")

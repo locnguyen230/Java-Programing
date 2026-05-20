@@ -4,20 +4,28 @@ import com.careermate.dto.recruiter.EmployerApplicantDto;
 import com.careermate.dto.recruiter.EmployerJobDto;
 import com.careermate.entity.ApplicationEntity;
 import com.careermate.entity.JobEntity;
+import com.careermate.entity.NotificationEntity;
 import com.careermate.entity.UserEntity;
 import com.careermate.repository.ApplicationRepository;
 import com.careermate.repository.JobRepository;
 import com.careermate.repository.UserRepository;
+import com.careermate.repository.NotificationRepository;
 import com.careermate.service.RecruiterJobService;
 import com.careermate.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import main.java.com.careermate.entity.SkillEntity;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.annotation.processing.SupportedSourceVersion;
 
 /**
  * Default recruiter service implementation.
@@ -27,6 +35,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RecruiterJobServiceImpl implements RecruiterJobService {
 
+    private final NotificationRepository notificationRepository;
     private final JobRepository jobRepository;
     private final ApplicationRepository applicationRepository;
     private final UserRepository userRepository;
@@ -35,13 +44,8 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
     @Transactional(readOnly = true)
     public List<EmployerJobDto> getEmployerJobs() {
         String recruiterId = CurrentUser.id();
-
-        UserEntity recruiter = userRepository.findById(recruiterId)
-                .orElseThrow(() -> new IllegalArgumentException("Recruiter not found"));
-
-        return jobRepository.findAll().stream()
-                .filter(j -> !j.isDeleted())
-                .filter(j -> j.getRecruiter() != null && recruiterId.equals(j.getRecruiter().getId()))
+        // Chỉ lấy job của đúng recruiter đó từ DB
+        return jobRepository.findByRecruiterIdAndDeletedFalse(recruiterId).stream()
                 .map(j -> new EmployerJobDto(j.getId(), j.getTitle(),
                         j.getStatus() != null ? j.getStatus().name() : null, j.isDeleted()))
                 .toList();
@@ -52,34 +56,90 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
     public List<EmployerApplicantDto> getJobApplicants(String jobId) {
         String recruiterId = CurrentUser.id();
 
-        // Ensure job belongs to recruiter
-        JobEntity job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found"));
-        if (job.getRecruiter() == null || !recruiterId.equals(job.getRecruiter().getId())) {
-            throw new IllegalAccessError("Not your job");
+        // Lấy danh sách ứng viên chỉ khi job đó thuộc về recruiter đang đăng nhập
+        List<ApplicationEntity> applicants = applicationRepository.findByJobIdAndRecruiterId(jobId, recruiterId);
+
+        // Nếu danh sách rỗng, có thể là jobId sai hoặc không phải job của người đó
+        if (applicants.isEmpty()) {
+            // Kiểm tra xem job có tồn tại không để ném Exception phù hợp (404 hoặc 403)
+            if (!jobRepository.existsById(jobId))
+                throw new EntityNotFoundException("Job not found");
         }
 
-        return applicationRepository.findAllByJob_Id(jobId).stream()
-                .map(this::toDto)
+        return applicants.stream()
+                .map(ap -> this.toDto(ap, ap.getJob()))
                 .toList();
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void acceptApplication(String applicationId) {
-        ApplicationEntity app = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Application not found"));
-        app.setStatus(ApplicationEntity.ApplicationStatus.ACCEPTED);
-        applicationRepository.save(app);
+        try {
+            // 1. Lấy thông tin đơn và Job đi kèm (nên dùng JOIN FETCH nếu cần)
+            ApplicationEntity app = applicationRepository.findById(applicationId)
+                    .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+
+            JobEntity job = app.getJob();
+
+            // 2. Kiểm tra logic nghiệp vụ trước khi lưu
+            if (app.getStatus() != ApplicationEntity.ApplicationStatus.SUBMITTED) {
+                throw new IllegalStateException("The application is not in a submittable state.");
+            }
+
+            if (job.getQuantity() <= 0) {
+                throw new IllegalStateException("The job has no available positions.");
+            }
+
+            NoficationEntity notification = createNofication(app, "Congratulations on your application!");
+
+            // 3. Thực hiện thay đổi
+            app.setStatus(ApplicationEntity.ApplicationStatus.ACCEPTED);
+            job.setQuantity(job.getQuantity() - 1);
+
+            // 4. Lưu lại
+            notificationRepository.save(notification);
+            applicationRepository.save(app);
+            jobRepository.save(job);
+
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new RuntimeException("The data has been changed by another user. Please reload the page.");
+        }
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void rejectApplication(String applicationId) {
-        ApplicationEntity app = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Application not found"));
-        app.setStatus(ApplicationEntity.ApplicationStatus.REJECTED);
-        applicationRepository.save(app);
+        try {
+            // 1. Lấy thông tin đơn và Job đi kèm (nên dùng JOIN FETCH nếu cần)
+            ApplicationEntity app = applicationRepository.findById(applicationId)
+                    .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+
+            JobEntity job = app.getJob();
+
+            // 2. Kiểm tra logic nghiệp vụ trước khi lưu
+            if (app.getStatus() != ApplicationEntity.ApplicationStatus.SUBMITTED) {
+                throw new IllegalStateException("This application is not pending.");
+            }
+
+            NoficationEntity notification = createNofication(app, "Unfortunately, you haven't been selected!");
+
+            // 3. Thực hiện thay đổi
+            app.setStatus(ApplicationEntity.ApplicationStatus.REJECTED);
+
+            // 4. Lưu lại
+            notificationRepository.save(notification);
+            applicationRepository.save(app);
+
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new RuntimeException("The data has been changed by another user. Please reload the page.");
+        }
+    }
+
+    public NoficationEntity createNofication(ApplicationEntity app, String msg) {
+        NoficationEntity notification = new NotificationEntity();
+        notification.setUser(app.getCandidate());
+        notification.setMessage(msg);
+        return notification;
     }
 
     @Override
@@ -99,7 +159,6 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
         job.setTitle(asString(map, "title"));
         job.setDescription(asString(map, "description"));
         job.setRequirements(asString(map, "requirements"));
-        job.setSkills(asString(map, "skills"));
         job.setBenefits(asString(map, "benefits"));
         job.setTags(asString(map, "tags"));
         job.setCategory(asString(map, "category"));
@@ -111,7 +170,24 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
 
         job.setFeatured(Boolean.TRUE.equals(map.get("featured")));
         if (map.get("quantity") instanceof Number n) {
+            if (n.intValue() < 0) {
+                throw new IllegalArgumentException("Quantity cannot be negative");
+            }
             job.setQuantity(n.intValue());
+        }
+
+        if (map.get("skills") instanceof List<?> skillNames) {
+            Set<SkillEntity> skillEntities = skillNames.stream()
+                    .map(obj -> obj != null ? obj.toString().trim() : "")
+                    .filter(name -> !name.isEmpty())
+                    .map(name -> skillRepository.findByName(name)
+                            .orElseGet(() -> {
+                                SkillEntity newSkill = new SkillEntity();
+                                newSkill.setName(name);
+                                return skillRepository.save(newSkill);
+                            }))
+                    .collect(Collectors.toSet());
+            job.setSkills(skillEntities);
         }
 
         String statusStr = asString(map, "status");
@@ -125,10 +201,13 @@ public class RecruiterJobServiceImpl implements RecruiterJobService {
             job.setStatus(JobEntity.JobStatus.DRAFT);
         }
 
-        if (map.get("minSalary") instanceof Number n)
-            job.setMinSalary(new java.math.BigDecimal(n.toString()));
-        if (map.get("maxSalary") instanceof Number n)
-            job.setMaxSalary(new java.math.BigDecimal(n.toString()));
+        if (map.get("minSalary") instanceof Number min)
+            job.setMinSalary(new java.math.BigDecimal(min.toString()));
+        if (map.get("maxSalary") instanceof Number max)
+            job.setMaxSalary(new java.math.BigDecimal(max.toString()));
+        if (min != null && max != null && min.compareTo(max) > 0) {
+            throw new IllegalArgumentException("Min salary cannot be greater than max salary");
+        }
         job.setSalaryUnit(asString(map, "salaryUnit"));
 
         JobEntity saved = jobRepository.save(job);

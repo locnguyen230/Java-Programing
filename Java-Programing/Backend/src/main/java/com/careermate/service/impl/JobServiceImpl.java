@@ -18,6 +18,8 @@ import com.careermate.service.JobService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import main.java.com.careermate.entity.SkillEntity;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -52,9 +54,11 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional(readOnly = true)
     public List<JobResponseDto> getJobs() {
-        // simple: return non-deleted jobs
-        return jobRepository.findAll().stream()
-                .filter(j -> !j.isDeleted())
+        Pageable pageable = PageRequest.of(0, 50);
+
+        return jobRepository.findAllOptimized(pageable)
+                .getContent()
+                .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
@@ -71,106 +75,64 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional(readOnly = true)
     public PageResponseDto<JobResponseDto> searchAdvanced(JobSearchParamsDto params) {
+        // 1. Chuẩn bị Pageable
         int page = params.page() == null || params.page() < 0 ? 0 : params.page();
         int size = params.size() == null || params.size() <= 0 ? 10 : params.size();
-
         Pageable pageable = PageRequest.of(page, size);
 
-        // No complex spec for now: in-memory filtering to keep scaffold runnable.
-        // In production replace with QueryDSL/Specifications.
-        List<JobEntity> all = jobRepository.findAll().stream()
-                .filter(j -> !j.isDeleted())
+        // 2. Gọi Repository để lấy dữ liệu đã được lọc và phân trang từ DB
+        Page<JobEntity> jobPage = jobRepository.searchJobs(
+                params.keyword(),
+                params.location(),
+                params.minSalary(),
+                params.maxSalary(),
+                params.experience(),
+                params.employmentType(),
+                params.companyName(),
+                params.skills(),
+                pageable);
+
+        // 3. Chuyển đổi sang DTO
+        List<JobResponseDto> dtos = jobPage.getContent().stream()
+                .map(this::toDto)
                 .toList();
 
-        List<JobEntity> filtered = all.stream().filter(j -> {
-            boolean ok = true;
-            if (params.keyword() != null && !params.keyword().isBlank()) {
-                String kw = params.keyword().toLowerCase();
-                ok &= (j.getTitle() != null && j.getTitle().toLowerCase().contains(kw))
-                        || (j.getDescription() != null && j.getDescription().toLowerCase().contains(kw));
-            }
-            if (params.location() != null && !params.location().isBlank()) {
-                ok &= j.getLocation() != null
-                        && j.getLocation().toLowerCase().contains(params.location().toLowerCase());
-            }
-            if (params.minSalary() != null) {
-                ok &= j.getMinSalary() != null
-                        && j.getMinSalary().compareTo(BigDecimal.valueOf(params.minSalary())) >= 0;
-            }
-            if (params.maxSalary() != null) {
-                ok &= j.getMaxSalary() != null
-                        && j.getMaxSalary().compareTo(BigDecimal.valueOf(params.maxSalary())) <= 0;
-            }
-            if (params.experience() != null && !params.experience().isBlank()) {
-                ok &= Objects.equals(j.getExperience(), params.experience());
-            }
-            if (params.employmentType() != null && !params.employmentType().isBlank()) {
-                ok &= Objects.equals(j.getEmploymentType(), params.employmentType());
-            }
-            if (params.skills() != null && !params.skills().isBlank()) {
-                String s = params.skills().toLowerCase();
-                ok &= j.getSkills() != null && j.getSkills().toLowerCase().contains(s);
-            }
-            if (params.companyName() != null && !params.companyName().isBlank()) {
-                ok &= j.getRecruiter() != null && j.getRecruiter().getCompanyName() != null
-                        && j.getRecruiter().getCompanyName().toLowerCase().contains(params.companyName().toLowerCase());
-            }
-            return ok;
-        }).toList();
-
-        int total = filtered.size();
-        int from = Math.min(page * size, total);
-        int to = Math.min(from + size, total);
-        List<JobEntity> pageItems = filtered.subList(from, to);
-
-        List<JobResponseDto> dtos = pageItems.stream().map(this::toDto).toList();
-
+        // 4. Trả về kết quả phân trang chuẩn từ Spring Data
         return new PageResponseDto<>(
                 dtos,
-                page,
-                size,
-                total,
-                total == 0 ? 0 : (int) Math.ceil((double) total / size),
-                to < total,
-                from > 0);
+                jobPage.getNumber(),
+                jobPage.getSize(),
+                jobPage.getTotalElements(),
+                jobPage.getTotalPages(),
+                jobPage.hasNext(),
+                jobPage.hasPrevious());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<JobResponseDto> getTrendingJobs() {
         return jobRepository.findTop20ByDeletedFalseAndPremiumTrueOrderByViewCountDesc().stream()
-                .map(this::toDto)
+                .map(job -> this.toDto(job))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> getTrendingKeywords() {
-        return jobRepository.findTop20ByDeletedFalseAndPremiumTrueOrderByViewCountDesc().stream()
-                .map(JobEntity::getSkills)
-                .filter(Objects::nonNull)
-                .flatMap(s -> List.of(s.split(","))
-                        .stream()
-                        .map(String::trim)
-                        .filter(t -> !t.isBlank()))
-                .distinct()
-                .limit(10)
-                .toList();
+        return jobRepository.findTopTrendingKeywords(PageRequest.of(0, 10));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> getSearchSuggestions(String prefix) {
-        String p = prefix == null ? "" : prefix.trim().toLowerCase();
-        return jobRepository.findAll().stream()
-                .filter(j -> !j.isDeleted())
-                .map(JobEntity::getTitle)
-                .filter(Objects::nonNull)
-                .map(String::toLowerCase)
-                .filter(t -> t.startsWith(p))
-                .distinct()
-                .limit(8)
-                .toList();
+        // 1. Xử lý chuỗi prefix an toàn
+        String p = (prefix == null || prefix.isBlank()) ? "" : prefix.trim();
+
+        // 2. Chỉ lấy tối đa 8 kết quả
+        Pageable pageable = PageRequest.of(0, 8);
+
+        // 3. Gọi trực tiếp Database
+        return jobRepository.findTitlesByPrefix(p, pageable);
     }
 
     @Override
@@ -185,10 +147,11 @@ public class JobServiceImpl implements JobService {
     public void saveJob(String jobId) {
         String userId = currentUserId();
         JobEntity job = jobRepository.findById(jobId)
+                .filter(j -> !j.isDeleted() && j.getQuantity() > 0)
                 .orElseThrow(() -> new EntityNotFoundException("Job not found: " + jobId));
-
         SavedJobEntity saved = savedJobRepository.findByUser_IdAndJob_Id(userId, jobId).orElse(null);
         if (saved != null) {
+            throw new IllegalStateException("Job already saved");
             return;
         }
 
@@ -239,9 +202,17 @@ public class JobServiceImpl implements JobService {
         JobEntity job = jobRepository.findById(payload.jobId())
                 .orElseThrow(() -> new EntityNotFoundException("Job not found: " + payload.jobId()));
 
+        if (job.isDeleted() || job.getQuantity() <= 0) {
+            throw new IllegalStateException("Job is not available for application");
+        }
+
         if (applicationRepository.existsByCandidate_IdAndJob_Id(candidateId, payload.jobId())) {
-            // already applied
-            return new Object();
+            // already applied: return consistent response shape
+            return new com.careermate.dto.application.ApplicationSubmissionResponse(
+                    false,
+                    "Already applied",
+                    null,
+                    ApplicationEntity.ApplicationStatus.SUBMITTED.name());
         }
 
         UserEntity candidate = userRepository.findById(candidateId)
@@ -276,13 +247,21 @@ public class JobServiceImpl implements JobService {
             return sud.id();
         }
 
-        // fallback: token subject stored as username by filter
+        // fallback: best-effort subject from JWT name
+        // If auth.getPrincipal() is not our SecurityUserDetails, we assume
+        // auth.getName() is JWT subject.
         return auth.getName();
     }
 
     private JobResponseDto toDto(JobEntity job) {
         String recruiterId = job.getRecruiter() != null ? job.getRecruiter().getId() : null;
         String companyName = job.getRecruiter() != null ? job.getRecruiter().getCompanyName() : null;
+
+        String skills = job.getSkills() != null
+                ? job.getSkills().stream()
+                        .map(SkillEntity::getName)
+                        .collect(Collectors.joining(", "))
+                : "";
 
         boolean isPremium = job.isPremium();
 
@@ -299,7 +278,7 @@ public class JobServiceImpl implements JobService {
                 job.getLocation(),
                 job.getExperience(),
                 job.getEmploymentType(),
-                job.getSkills(),
+                skills,
                 job.getCreatedAt() != null ? job.getCreatedAt().toString() : null,
                 job.getDeadline(),
                 job.getViewCount(),

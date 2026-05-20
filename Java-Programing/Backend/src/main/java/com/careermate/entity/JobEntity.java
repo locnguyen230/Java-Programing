@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Job posting.
@@ -13,8 +15,15 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @Entity
-@Table(name = "jobs")
+@Table(name = "jobs", indexes = {
+        @Index(name = "idx_job_status_deleted", columnList = "status, deleted"),
+        @Index(name = "idx_job_title", columnList = "title"),
+        @Index(name = "idx_job_featured_premium", columnList = "featured, premium, view_count")
+})
 public class JobEntity extends AuditableEntity {
+
+    @Version
+    private Long version;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -48,16 +57,12 @@ public class JobEntity extends AuditableEntity {
     @Column(name = "employment_type", length = 50)
     private String employmentType;
 
-    /** CSV stored in DB */
-    @Column(name = "skills_csv", columnDefinition = "TEXT")
-    private String skills;
+    @ManyToMany
+    @JoinTable(name = "job_skills", joinColumns = @JoinColumn(name = "job_id"), inverseJoinColumns = @JoinColumn(name = "skill_id"))
+    private Set<SkillEntity> skills = new HashSet<>();
 
     @Column(name = "benefits", columnDefinition = "TEXT")
     private String benefits;
-
-    /** CSV stored in DB */
-    @Column(name = "tags_csv", columnDefinition = "TEXT")
-    private String tags;
 
     @Column(name = "category", length = 100)
     private String category;
